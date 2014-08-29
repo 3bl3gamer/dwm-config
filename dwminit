@@ -1,0 +1,24 @@
+#! /bin/bash
+
+ps -A | grep dwminit | grep -oP '^\D*(?!'$$'\D)\d+' | xargs kill
+
+BRI_FILE="/sys/devices/virtual/backlight/psb-bl/brightness"
+sudo chmod o+w $BRI_FILE
+echo 15 > $BRI_FILE
+
+#sudo mv /usr/lib/gnome-settings-daemon-3.0/libkeyboard.so{,_}
+gnome-settings-daemon &
+nm-applet &
+
+setxkbmap -option grp:caps_toggle,grp:toggle "us,ru"
+
+BAT_PATH="/sys/class/power_supply/BAT0"
+
+while true; do
+  BAT_PER=$( expr `cat $BAT_PATH/energy_now`00 / `cat $BAT_PATH/energy_full` )
+  TIME=$( date +%T )
+  xsetroot -name "`echo $BAT_PER% $TIME`"
+  sleep 0.$( expr 1000000000 - `date +%N` )
+done &
+
+exec dwm
