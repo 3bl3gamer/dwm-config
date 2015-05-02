@@ -10,7 +10,8 @@ echo 15 > $BRI_FILE
 gnome-settings-daemon &
 nm-applet &
 
-setxkbmap -option grp:caps_toggle,grp:toggle "us,ru"
+#setxkbmap -option grp:caps_toggle,grp:toggle "us,ru"
+setxkbmap -option grp:toggle "us,ru" -option ctrl:nocaps
 
 BAT_PATH="/sys/class/power_supply/BAT0"
 
