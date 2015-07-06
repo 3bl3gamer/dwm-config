@@ -2,6 +2,7 @@
 
 С патчами [pertag](http://dwm.suckless.org/patches/pertag),
 [systray](http://dwm.suckless.org/patches/systray)
+[Per-window keyboard layout](http://dwm.suckless.org/patches/pwkl)
 и парой самописных функций для регулирования посветки.
 
 `dwminit` - скрипт,
