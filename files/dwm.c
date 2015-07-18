@@ -36,6 +36,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
+#include <X11/XKBlib.h>
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif /* XINERAMA */
@@ -119,6 +120,7 @@ typedef struct {
 	int x, y, w, h;
 	unsigned long norm[ColLast];
 	unsigned long sel[ColLast];
+	unsigned long lang0, lang1;
 	Drawable drawable;
 	GC gc;
 	struct {
@@ -296,6 +298,7 @@ static int screen;
 static int sw, sh;           /* X display screen geometry width, height */
 static int bh, blw = 0;      /* bar geometry */
 static int (*xerrorxlib)(Display *, XErrorEvent *);
+static int xkbEventType = 0; /* event type for keyboar layouts updates */
 static unsigned int numlockmask = 0;
 static void (*handler[LASTEvent]) (XEvent *) = {
 	[ButtonPress] = buttonpress,
@@ -1663,9 +1666,25 @@ run(void) {
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while(running && !XNextEvent(dpy, &ev))
+	while(running && !XNextEvent(dpy, &ev)){
+		if (ev.type == xkbEventType) {
+			XkbEvent *xkbev = (XkbEvent*)&ev;
+
+			if (xkbev->any.xkb_type != XkbStateNotify) continue;
+			static int prev_lang = -1;
+			int lang = xkbev->state.group;
+			if (lang == prev_lang) continue;
+
+			dc.sel[ColBG] = lang == 0 ? dc.lang0 : dc.lang1;
+			drawbars();
+
+			prev_lang = lang;
+			continue;
+		}
+
 		if(handler[ev.type])
 			handler[ev.type](&ev); /* call handler */
+	}
 }
 
 void
@@ -1854,11 +1873,13 @@ setup(void) {
 	cursor[CurResize] = XCreateFontCursor(dpy, XC_sizing);
 	cursor[CurMove] = XCreateFontCursor(dpy, XC_fleur);
 	/* init appearance */
+	dc.lang0 = getcolor(selbgcolorlang0);
+	dc.lang1 = getcolor(selbgcolorlang1);
 	dc.norm[ColBorder] = getcolor(normbordercolor);
 	dc.norm[ColBG] = getcolor(normbgcolor);
 	dc.norm[ColFG] = getcolor(normfgcolor);
 	dc.sel[ColBorder] = getcolor(selbordercolor);
-	dc.sel[ColBG] = getcolor(selbgcolor);
+	dc.sel[ColBG] = dc.lang0;
 	dc.sel[ColFG] = getcolor(selfgcolor);
 	dc.drawable = XCreatePixmap(dpy, root, DisplayWidth(dpy, screen), bh, DefaultDepth(dpy, screen));
 	dc.gc = XCreateGC(dpy, root, 0, NULL);
@@ -1880,6 +1901,16 @@ setup(void) {
 	XChangeWindowAttributes(dpy, root, CWEventMask|CWCursor, &wa);
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
+
+	/* enable extension for receiving keyboard layout events */
+	// http://stackoverflow.com/questions/15499723/which-event-is-fired-when-switching-kb-layout-in-x-org
+	// http://www.linux.org.ru/forum/development/8130627
+	// https://github.com/jgoerzen/ledmon/blob/master/ledmon.c
+	int minv = XkbMinorVersion, majv = XkbMajorVersion;
+	char xkb_ok = XkbQueryExtension(dpy, NULL, &xkbEventType, NULL, &majv, &minv);
+	if (!xkb_ok) fprintf(stderr, "XkbQueryExtension failed.\n");
+	xkb_ok = xkb_ok && XkbSelectEvents(dpy, XkbUseCoreKbd, XkbStateNotifyMask, XkbStateNotifyMask);
+	if (!xkb_ok) fprintf(stderr, "XkbSelectEvents filed.\n");
 }
 
 void
