@@ -350,8 +350,8 @@ adjustbrightness(const char *path, float delta, int max) {
 	
 	fd = freopen(NULL, "w", fd);
 	if(!fd) {
-		return;
 		fprintf(stderr, "Failed to reopen %s\n", path);
+		return;
 	}
 	fprintf(fd, "%d\n", i);
 	fclose(fd);
