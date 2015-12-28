@@ -2,16 +2,16 @@
 
 /* appearance */
 static const char *fonts[] = {
-	"Ubuntu mono:size=13"
+	"Ubuntu mono:size=14"
 };
-static const char dmenufont[]       = "monospace:size=10";
+static const char dmenufont[]       = "Ubuntu mono:size=14";
 static const char normbordercolor[] = "#444444";
 static const char normbgcolor[]     = "#222222";
 static const char normfgcolor[]     = "#bbbbbb";
 static const char selbordercolor[]  = "#005577";
 static const char selbgcolor[]      = "#005577";
 static const char selfgcolor[]      = "#eeeeee";
-static const unsigned int borderpx  = 2;        /* border pixel of windows */
+static const unsigned int borderpx  = 3;        /* border pixel of windows */
 static const unsigned int snap      = 32;       /* snap pixel */
 static const unsigned int systraypinning = 0;   /* 0: sloppy systray follows selected monitor, >0: pin systray to monitor X */
 static const unsigned int systrayspacing = 2;   /* systray spacing */
@@ -30,7 +30,7 @@ static const Rule rules[] = {
 	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
 	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
-	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
+	{ "Firefox",  NULL,       NULL,       1 << 1,       0,           -1 },
 };
 
 /* layout(s) */
@@ -46,7 +46,7 @@ static const Layout layouts[] = {
 };
 
 /* key definitions */
-#define MODKEY Mod1Mask
+#define MODKEY Mod4Mask
 #define TAGKEYS(KEY,TAG) \
 	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
 	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
@@ -56,10 +56,14 @@ static const Layout layouts[] = {
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
+//#include "xkbcommon/xkbcommon-keysyms.h"
+#define XKB_KEY_XF86Sleep 0x1008FF2F
+
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolor, "-sf", selfgcolor, NULL };
-static const char *termcmd[]  = { "st", NULL };
+static const char *termcmd[]  = { "gnome-terminal", NULL };
+static const char *sleepcmd[] = { "systemctl", "suspend", NULL };
 
 void lcd_light_inc();
 void lcd_light_dec();
@@ -101,10 +105,13 @@ static Key keys[] = {
 	TAGKEYS(                        XK_8,                      7)
 	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
+	// backlight
 	{ MODKEY,                       XK_0,      lcd_light_dec,  {0} },
 	{ MODKEY|ShiftMask,             XK_0,      lcd_light_inc,  {0} },
 	{ MODKEY,                       XK_minus,  kbd_light_dec,  {0} },
 	{ MODKEY|ShiftMask,             XK_minus,  kbd_light_inc,  {0} },
+	// smth
+	{ 0,                            XKB_KEY_XF86Sleep, spawn,  {.v = sleepcmd} },
 };
 
 /* button definitions */
