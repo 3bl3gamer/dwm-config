@@ -61,6 +61,11 @@ static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() 
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolor, "-sf", selfgcolor, NULL };
 static const char *termcmd[]  = { "st", NULL };
 
+void lcd_light_inc();
+void lcd_light_dec();
+void kbd_light_inc();
+void kbd_light_dec();
+
 static Key keys[] = {
 	/* modifier                     key        function        argument */
 	{ MODKEY,                       XK_bracketleft, spawn,     {.v = dmenucmd } },
@@ -80,8 +85,8 @@ static Key keys[] = {
 	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
-	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
-	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
+	//{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
+	//{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
 	{ MODKEY,                       XK_comma,  focusmon,       {.i = -1 } },
 	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
@@ -96,6 +101,10 @@ static Key keys[] = {
 	TAGKEYS(                        XK_8,                      7)
 	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
+	{ MODKEY,                       XK_0,      lcd_light_dec,  {0} },
+	{ MODKEY|ShiftMask,             XK_0,      lcd_light_inc,  {0} },
+	{ MODKEY,                       XK_minus,  kbd_light_dec,  {0} },
+	{ MODKEY|ShiftMask,             XK_minus,  kbd_light_inc,  {0} },
 };
 
 /* button definitions */
@@ -115,3 +124,47 @@ static Button buttons[] = {
 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
 };
 
+
+static const char LCD_BACKLIGHT_PATH[] = "/sys/devices/pci0000:00/0000:00:02.0/drm/card0/card0-eDP-1/intel_backlight/brightness";
+static const char KBD_BACKLIGHT_PATH[] = "/sys/devices/platform/asus-nb-wmi/leds/asus::kbd_backlight/brightness";
+int lcd_inc_func(int v) { return MAX(1, (int)(v * 1.5f + 0.99)); }
+int lcd_dec_func(int v) { return MAX(1, (int)(v / 1.5f       )); }
+int kbd_inc_func(int v) { return v + 1; }
+int kbd_dec_func(int v) { return v - 1; }
+
+void
+update_file(const char *path, int (*func)(int)) {
+	FILE* fd = fopen(path, "r+");
+	int i;
+	fscanf(fd, "%d", &i);
+	i = func(i);
+	
+	// works with just fopen(..., "r+"), but this may be useful one day
+	//fd = freopen(NULL, "w", fd);
+	//if(!fd) {
+	//	fprintf(stderr, "Failed to reopen %s\n", path);
+	//	return;
+	//}
+	fprintf(fd, "%d\n", i);
+	fclose(fd);
+}
+
+void
+lcd_light_inc() {
+	update_file(LCD_BACKLIGHT_PATH, lcd_inc_func);
+}
+
+void
+lcd_light_dec() {
+	update_file(LCD_BACKLIGHT_PATH, lcd_dec_func);
+}
+
+void
+kbd_light_inc() {
+	update_file(KBD_BACKLIGHT_PATH, kbd_inc_func);
+}
+
+void
+kbd_light_dec() {
+	update_file(KBD_BACKLIGHT_PATH, kbd_dec_func);
+}
