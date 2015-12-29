@@ -57,7 +57,8 @@ static const Layout layouts[] = {
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 //#include "xkbcommon/xkbcommon-keysyms.h"
-#define XKB_KEY_XF86Sleep 0x1008FF2F
+#define XKB_KEY_XF86Sleep    0x1008FF2F
+#define XKB_KEY_XF86PowerOff 0x1008FF2A
 
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
@@ -110,6 +111,11 @@ static Key keys[] = {
 	{ MODKEY|ShiftMask,             XK_0,      lcd_light_inc,  {0} },
 	{ MODKEY,                       XK_minus,  kbd_light_dec,  {0} },
 	{ MODKEY|ShiftMask,             XK_minus,  kbd_light_inc,  {0} },
+	// screenshots
+	{ 0,                            XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot",        NULL}} },
+	{ ControlMask,                  XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot", "-c",  NULL}} },
+	{ ShiftMask,                    XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot", "-a",  NULL}} },
+	{ ControlMask|ShiftMask,        XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot", "-ca", NULL}} },
 	// smth
 	{ 0,                            XKB_KEY_XF86Sleep, spawn,  {.v = sleepcmd} },
 };
