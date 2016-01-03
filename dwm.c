@@ -36,6 +36,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
+#include <X11/XKBlib.h>
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif /* XINERAMA */
@@ -317,6 +318,11 @@ static Display *dpy;
 static Drw *drw;
 static Monitor *mons, *selmon;
 static Window root;
+
+static int xkbEventType = 0; /* event type for keyboard layouts updates */
+static int kbdlayout = 0;
+static Clr *kbdlayoutcolor0 = NULL;
+static Clr *kbdlayoutcolor1 = NULL;
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"
@@ -1797,9 +1803,23 @@ run(void)
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
+	while (running && !XNextEvent(dpy, &ev)) {
+		if (ev.type == xkbEventType) {
+			XkbEvent *xkbev = (XkbEvent*)&ev;
+
+			if (xkbev->any.xkb_type != XkbStateNotify) continue;
+			int lang = xkbev->state.group;
+			if (lang == kbdlayout) continue;
+
+			kbdlayout = lang;
+			scheme[SchemeSel].bg = lang == 0 ? kbdlayoutcolor0 : kbdlayoutcolor1;
+			drawbars();
+
+			continue;
+		}
 		if (handler[ev.type])
 			handler[ev.type](&ev); /* call handler */
+	}
 }
 
 void
@@ -2004,11 +2024,13 @@ setup(void)
 	cursor[CurResize] = drw_cur_create(drw, XC_sizing);
 	cursor[CurMove] = drw_cur_create(drw, XC_fleur);
 	/* init appearance */
+	kbdlayoutcolor0 = drw_clr_create(drw, selbgcolorlang0);
+	kbdlayoutcolor1 = drw_clr_create(drw, selbgcolorlang1);
 	scheme[SchemeNorm].border = drw_clr_create(drw, normbordercolor);
 	scheme[SchemeNorm].bg = drw_clr_create(drw, normbgcolor);
 	scheme[SchemeNorm].fg = drw_clr_create(drw, normfgcolor);
 	scheme[SchemeSel].border = drw_clr_create(drw, selbordercolor);
-	scheme[SchemeSel].bg = drw_clr_create(drw, selbgcolor);
+	scheme[SchemeSel].bg = kbdlayoutcolor0;
 	scheme[SchemeSel].fg = drw_clr_create(drw, selfgcolor);
 	/* init system tray */
 	updatesystray();
@@ -2029,6 +2051,16 @@ setup(void)
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
 	focus(NULL);
+
+	/* enable extension for receiving keyboard layout events */
+	// http://stackoverflow.com/questions/15499723/which-event-is-fired-when-switching-kb-layout-in-x-org
+	// http://www.linux.org.ru/forum/development/8130627
+	// https://github.com/jgoerzen/ledmon/blob/master/ledmon.c
+	int minv = XkbMinorVersion, majv = XkbMajorVersion;
+	char xkb_ok = XkbQueryExtension(dpy, NULL, &xkbEventType, NULL, &majv, &minv);
+	if (!xkb_ok) fprintf(stderr, "XkbQueryExtension failed.\n");
+	xkb_ok = xkb_ok && XkbSelectEvents(dpy, XkbUseCoreKbd, XkbStateNotifyMask, XkbStateNotifyMask);
+	if (!xkb_ok) fprintf(stderr, "XkbSelectEvents filed.\n");
 }
 
 void

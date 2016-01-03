@@ -9,7 +9,8 @@ static const char normbordercolor[] = "#444444";
 static const char normbgcolor[]     = "#222222";
 static const char normfgcolor[]     = "#bbbbbb";
 static const char selbordercolor[]  = "#005577";
-static const char selbgcolor[]      = "#005577";
+static const char selbgcolorlang0[] = "#005577";
+static const char selbgcolorlang1[] = "#007733";
 static const char selfgcolor[]      = "#eeeeee";
 static const unsigned int borderpx  = 3;        /* border pixel of windows */
 static const unsigned int snap      = 32;       /* snap pixel */
@@ -72,9 +73,15 @@ static const Layout layouts[] = {
 
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
-static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolor, "-sf", selfgcolor, NULL };
+static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolorlang0, "-sf", selfgcolor, NULL };
 static const char *termcmd[]  = { "gnome-terminal", NULL };
 static const char *sleepcmd[] = { "systemctl", "suspend", NULL };
+
+void spawn_dmenu(const Arg *arg) {
+	const char *bgcolor = kbdlayout == 0 ? selbgcolorlang0 : selbgcolorlang1;
+	dmenucmd[10] = bgcolor;
+	spawn(arg);
+}
 
 void lcd_light_inc();
 void lcd_light_dec();
@@ -83,7 +90,7 @@ void kbd_light_dec();
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
-	{ MODKEY,                       XK_bracketleft, spawn,     {.v = dmenucmd } },
+	{ MODKEY,                       XK_bracketleft,spawn_dmenu,{.v = dmenucmd } },
 	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
