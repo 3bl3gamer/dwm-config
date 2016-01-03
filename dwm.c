@@ -167,6 +167,17 @@ struct Systray {
 	Client *icons;
 };
 
+typedef struct {
+	int w;
+	int numrows;
+	int maxval;
+	char **strcolors;
+	char *strbgcolor;
+	Clr **colors;
+	Clr *bgcolor;
+	int *values;
+} Chart;
+
 /* function declarations */
 static void applyrules(Client *c);
 static int applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact);
@@ -188,7 +199,8 @@ static void destroynotify(XEvent *e);
 static void detach(Client *c);
 static void detachstack(Client *c);
 static Monitor *dirtomon(int dir);
-static void drawbar(Monitor *m);
+static void initcharts(void);
+static void drawbar(Monitor *m, int isstatusupdate);
 static void drawbars(void);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
@@ -858,7 +870,63 @@ dirtomon(int dir)
 }
 
 void
-drawbar(Monitor *m)
+initcharts(void)
+{
+	int i, j;
+	int n = sizeof(charts) / sizeof(Chart);
+	Chart *chart;
+
+	for (i=0; i<n; i++) {
+		chart = &charts[i];
+
+		chart->colors = (Clr **)calloc(chart->numrows, sizeof(Clr *));
+		if (!chart->colors)
+			die("fatal: could not malloc() %u chart colors bytes\n", chart->numrows * sizeof(Clr *));
+
+		for (j=0; j<chart->numrows; j++) {
+			chart->colors[j] = drw_clr_create(drw, chart->strcolors[j]);
+		}
+
+		chart->bgcolor = drw_clr_create(drw, chart->strbgcolor);
+
+		chart->values = (int *)calloc(chart->numrows * chart->w, sizeof(int));
+		if (!chart->values)
+			die("fatal: could not malloc() %u chart values bytes\n", chart->numrows * chart->w * sizeof(int));
+	}
+}
+
+void
+drawchart(Chart *chart, int x)
+{
+	int i, j;
+	float v, y;
+	for (i=0; i<chart->w; i++) {
+		y = bh;
+		for (j=0; j<chart->numrows; j++) {
+			v = (float) chart->values[i*chart->numrows + j] * bh / chart->maxval;
+			XSetForeground(drw->dpy, drw->gc, chart->colors[j]->pix);
+			XDrawLine(drw->dpy, drw->drawable, drw->gc, x+i, y, x+i, y-v);
+			y -= v;
+		}
+		XSetForeground(drw->dpy, drw->gc, chart->bgcolor->pix);
+		XDrawLine(drw->dpy, drw->drawable, drw->gc, x+i, y, x+i, 0);
+	}
+}
+
+void shiftchart(Chart *chart)
+{
+	int i;
+	int n = chart->numrows, w = chart->w;
+	for (i = 0; i < n*(w-1); i++) {
+		chart->values[i] = chart->values[i+n];
+	}
+	for (i = 0; i < n; i++) {
+		chart->values[n*(w-1)+i] = 0;
+	}
+}
+
+void
+drawbar(Monitor *m, int isstatusupdate)
 {
 	int x, xx, w, dx;
 	unsigned int i, occ = 0, urg = 0;
@@ -887,7 +955,65 @@ drawbar(Monitor *m)
 	x += w;
 	xx = x;
 	if (m == selmon) { /* status is only drawn on selected monitor */
-		w = TEXTW(stext);
+		int i, j, part_i, xorigin;
+		int chart_i, val, offset;
+		int charts_number = sizeof(charts) / sizeof(Chart);
+		char *sep_pos;
+		Chart *chart;
+
+		/* calculating status width, collecting data */
+		w = 0;
+		i = -1;
+		part_i = 0;
+		chart_i = 0;
+		while (1) {
+			i++;
+			if (stext[i] == '\0') {
+				w += TEXTW(stext+part_i);
+				break;
+			} else
+			if (stext[i] == '{') {
+				if (i > part_i) {
+					stext[i] = '\0';
+					w += TEXTW(stext+part_i);
+					stext[i] = '{';
+				} else {
+					w += drw->fonts[0]->h / 2;
+				}
+
+				/* just ignoring extra charts markers */
+				if (chart_i < charts_number) {
+					chart = &charts[chart_i];
+
+					/* appending charts values only if it is status text update */
+					/* and chart data not empty (not "{}") */
+					if (isstatusupdate && stext[i+1] != '}') {
+						/* shifting chart with new values */
+						shiftchart(chart);
+						sep_pos = stext + i;
+						offset = chart->numrows * (chart->w-1);
+						for (j = 0; j < chart->numrows; j++) {
+							val = strtol(sep_pos+1, &sep_pos, 10);
+							chart->values[offset+j] = val;
+							if (*sep_pos != ',') break;
+						}
+
+						/* (optionally) updating upper chart bounds */
+						if (*sep_pos == ':') {
+							chart->maxval = strtol(sep_pos+1, &sep_pos, 10);
+						}
+					}
+
+					w += chart->w;
+				}
+
+				while (stext[++i] != '}' && stext[i] != '\0') {}
+				part_i = i+1;
+				chart_i++;
+			}
+		}
+
+		/* calculating status start position */
 		x = m->ww - w;
 		if (showsystray && m == systraytomon(m)) {
 			x -= getsystraywidth();
@@ -896,7 +1022,44 @@ drawbar(Monitor *m)
 			x = xx;
 			w = m->ww - xx;
 		}
-		drw_text(drw, x, 0, w, bh, stext, 0);
+		xorigin = x;
+
+		/* drawing now */
+		i = -1;
+		part_i = 0;
+		chart_i = 0;
+		while (1) {
+			i++;
+			if (stext[i] == '\0') {
+				drw_text(drw, x, 0, w, bh, stext+part_i, 0);
+				break;
+			} else
+			if (stext[i] == '{') {
+				if (i == 0) {
+					/* if status starts with chart (not text), clear it's left margin */
+					drw_rect(drw, x, 0, drw->fonts[0]->h, bh, 1, 0, 1);
+				}
+				if (i > part_i) {
+					stext[i] = '\0';
+					x = drw_text(drw, x, 0, w, bh, stext+part_i, 0);
+					x += drw->fonts[0]->h;
+					stext[i] = '{';
+				} else {
+					x += drw->fonts[0]->h / 2;
+				}
+
+				if (chart_i < charts_number) {
+					drawchart(&charts[chart_i], x);
+					x += charts[chart_i].w;
+				}
+
+				while (stext[++i] != '}' && stext[i] != '\0') {}
+				part_i = i+1;
+				chart_i++;
+			}
+		}
+
+		x = xorigin;
 	} else
 		x = m->ww;
 	if ((w = x - xx) > bh) {
@@ -919,7 +1082,7 @@ drawbars(void)
 	Monitor *m;
 
 	for (m = mons; m; m = m->next)
-		drawbar(m);
+		drawbar(m, 0);
 	updatesystray();
 }
 
@@ -949,7 +1112,7 @@ expose(XEvent *e)
 	XExposeEvent *ev = &e->xexpose;
 
 	if (ev->count == 0 && (m = wintomon(ev->window))) {
-		drawbar(m);
+		drawbar(m, 0);
 		if (m == selmon)
 			updatesystray();
 	}
@@ -1464,7 +1627,7 @@ propertynotify(XEvent *e)
 		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
 			updatetitle(c);
 			if (c == c->mon->sel)
-				drawbar(c->mon);
+				drawbar(c->mon, 0);
 		}
 		if (ev->atom == netatom[NetWMWindowType])
 			updatewindowtype(c);
@@ -1610,7 +1773,7 @@ restack(Monitor *m)
 	XEvent ev;
 	XWindowChanges wc;
 
-	drawbar(m);
+	drawbar(m, 0);
 	if (!m->sel)
 		return;
 	if (m->sel->isfloating || !m->lt[m->sellt]->arrange)
@@ -1780,7 +1943,7 @@ setlayout(const Arg *arg)
 	if (selmon->sel)
 		arrange(selmon);
 	else
-		drawbar(selmon);
+		drawbar(selmon, 0);
 }
 
 /* arg > 1.0 will set mfact absolutly */
@@ -1849,6 +2012,8 @@ setup(void)
 	scheme[SchemeSel].fg = drw_clr_create(drw, selfgcolor);
 	/* init system tray */
 	updatesystray();
+	/* init charts */
+	initcharts();
 	/* init bars */
 	updatebars();
 	updatestatus();
@@ -2315,7 +2480,7 @@ updatestatus(void)
 {
 	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
 		strcpy(stext, "dwm-"VERSION);
-	drawbar(selmon);
+	drawbar(selmon, 1);
 }
 
 void

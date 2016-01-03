@@ -20,6 +20,16 @@ static const int showsystray        = 1;        /* 0 means no systray */
 static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
 
+static char *bat_chart_colors[] = {"#FF3388", "#49CC35"};
+static char *mem_chart_colors[] = {"#007799", "#FFFFFF", "#005577"};
+static char *cpu_chart_colors[] = {"#FF6E00", "#CB0C29", "#49CC35", "#0077FF"};
+static Chart charts[] = {
+	/* width  rows  max value  rows colors        backgr color  some inner data (will be set at init) */
+	{ 50,     2,    10000,     bat_chart_colors,  "#000000",    NULL, NULL, NULL },
+	{ 50,     3,    1024,      mem_chart_colors,  "#000000",    NULL, NULL, NULL },
+	{ 50,     4,    400,       cpu_chart_colors,  "#000000",    NULL, NULL, NULL },
+};
+
 /* tagging */
 static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 
