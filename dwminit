@@ -22,4 +22,4 @@ while true; do
   sleep 0.$( expr 1000000000 - `date +%N` )
 done &
 
-exec dwm
+exec dwm >> ~/dwmlog
