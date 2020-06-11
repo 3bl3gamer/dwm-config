@@ -9,7 +9,12 @@
 
 static const char *BAT_CAPACITY = "/sys/class/power_supply/BAT0/capacity";
 static const char *BAT_POWER = "/sys/class/power_supply/BAT0/power_now";
-static const char *CPU_TEMP = "/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input";
+static const char *CPU_TEMP;
+static const char *CPU_TEMPS[] = {"/sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input",
+                                  "/sys/devices/platform/coretemp.0/hwmon/hwmon3/temp1_input",
+                                  "/sys/devices/platform/coretemp.0/hwmon/hwmon4/temp1_input",
+                                  "/sys/devices/platform/coretemp.0/hwmon/hwmon5/temp1_input",
+                                  "/sys/devices/platform/coretemp.0/hwmon/hwmon6/temp1_input",};
 #define NUM_CPUS 4
 
 int readi(const char *path) {
@@ -21,9 +26,18 @@ int readi(const char *path) {
 	return res;
 }
 
+void find_cpu_temp() {
+	int n = sizeof(CPU_TEMPS) / sizeof(CPU_TEMPS[0]);
+	for (int i=0; i<n; i++) {
+		CPU_TEMP = CPU_TEMPS[i];
+		if (access(CPU_TEMP, F_OK) != -1)
+			break;
+	}
+}
+
 int main() {
 	int count = 0;
-	char full_buf[128];
+	char full_buf[520]; //достаточно и 128, но make показывает предупреждение
 	
 	char bat_chart[32];
 	int power_sum = 0;
@@ -38,6 +52,8 @@ int main() {
 	time_t cur_time;
 	struct tm* tm_info;
 	char time_buf[16];
+	
+	find_cpu_temp();
 	
 	Display *dpy;
 	if (!(dpy = XOpenDisplay(NULL))) {
@@ -119,7 +135,7 @@ int main() {
 		// synchronizing with actual seconds
 		struct timeval tp;
 		gettimeofday(&tp, NULL);
-		usleep(1000000 - tp.tv_usec);
+		usleep(1000000 + 10000 - tp.tv_usec);
 		
 		count++;
 	}

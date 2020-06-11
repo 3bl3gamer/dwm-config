@@ -19,7 +19,7 @@ static const unsigned int systrayspacing = 2;   /* systray spacing */
 static const int systraypinningfailfirst = 1;   /* 1: if pinning fails, display systray on the first monitor, 0: display systray on the last monitor*/
 static const int showsystray        = 1;        /* 0 means no systray */
 static const int showbar            = 1;        /* 0 means no bar */
-static const int topbar             = 0;        /* 0 means bottom bar */
+static const int topbar             = 1;        /* 0 means bottom bar */
 
 static char *bat_chart_colors[] = {"#FF3388", "#49CC35"};
 static char *mem_chart_colors[] = {"#007799", "#FFFFFF", "#005577"};
@@ -129,10 +129,10 @@ static Key keys[] = {
 	{ MODKEY,                       XK_minus,  kbd_light_dec,  {0} },
 	{ MODKEY|ShiftMask,             XK_minus,  kbd_light_inc,  {0} },
 	// screenshots
-	{ 0,                            XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot",        NULL}} },
-	{ ControlMask,                  XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot", "-c",  NULL}} },
-	{ ShiftMask,                    XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot", "-a",  NULL}} },
-	{ ControlMask|ShiftMask,        XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"gnome-screenshot", "-ca", NULL}} },
+	{ 0,                            XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"make_screenshot",        NULL}} },
+	{ ControlMask,                  XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"make_screenshot", "--clip",  NULL}} },
+	{ ShiftMask,                    XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"make_screenshot", "--sel",  NULL}} },
+	{ ControlMask|ShiftMask,        XKB_KEY_XF86PowerOff,  spawn,  {.v = (char*[]){"make_screenshot", "--clip", "--sel", NULL}} },
 	// smth
 	{ 0,                            XKB_KEY_XF86Sleep, spawn,  {.v = sleepcmd} },
 };
